@@ -4,7 +4,6 @@
 
 # مخرجات البناء
 build/
-debug.keystore
 *.apk
 
 # النظام

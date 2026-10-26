@@ -41,13 +41,14 @@ jobs:
           echo "القوالب المثبتة:" && ls ~/.local/share/godot/export_templates/$TEMPLATE_VERSION/ | head -n 5
 
       - name: استيراد موارد المشروع
-        run: godot --headless --path . --import
-
-      - name: إنشاء مفتاح توقيع اختباري
         run: |
-          keytool -keyalg RSA -genkeypair -alias androiddebugkey \
-            -keypass android -keystore debug.keystore -storepass android \
-            -dname "CN=Android Debug,O=Android,C=US" -validity 9999
+          godot --headless --path . --import || true
+          godot --headless --path . --import
+
+      - name: التحقق من مفتاح التوقيع الثابت
+        run: |
+          ls -la debug.keystore
+          keytool -list -keystore debug.keystore -storepass android 2>/dev/null | grep androiddebugkey
 
       - name: تصدير ملف APK
         run: |
