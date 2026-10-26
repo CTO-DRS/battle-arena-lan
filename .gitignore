@@ -1,0 +1,12 @@
+# Godot 4
+.godot/
+*.translation
+
+# مخرجات البناء
+build/
+debug.keystore
+*.apk
+
+# النظام
+.DS_Store
+*.tmp

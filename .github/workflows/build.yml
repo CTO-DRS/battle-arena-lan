@@ -1,0 +1,82 @@
+name: بناء اللعبة تلقائياً (Android APK)
+
+# يعمل البناء تلقائياً عند كل تحديث للكود، أو يدوياً من تبويب Actions.
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: بناء نسخة أندرويد
+    runs-on: ubuntu-latest
+    steps:
+      - name: جلب الكود
+        uses: actions/checkout@v4
+
+      - name: تثبيت Java (لأداة إنشاء مفتاح التوقيع)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: تثبيت محرك Godot 4.3
+        run: |
+          wget -q "https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip" -O /tmp/godot.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot-bin
+          sudo mv /tmp/godot-bin/Godot_v4.3-stable_linux.x86_64 /usr/local/bin/godot
+          echo "المحرك المثبت:" && godot --version
+
+      - name: تثبيت قوالب التصدير
+        run: |
+          wget -q "https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz" -O /tmp/templates.tpz
+          mkdir -p ~/.local/share/godot/export_templates
+          unzip -q /tmp/templates.tpz -d /tmp/tpz
+          mv /tmp/tpz/templates/* ~/.local/share/godot/export_templates/
+          echo "القوالب المثبتة:" && ls ~/.local/share/godot/export_templates/
+
+      - name: استيراد موارد المشروع
+        run: godot --headless --path . --import
+
+      - name: إنشاء مفتاح توقيع اختباري
+        run: |
+          keytool -keyalg RSA -genkeypair -alias androiddebugkey \
+            -keypass android -keystore debug.keystore -storepass android \
+            -dname "CN=Android Debug,O=Android,C=US" -validity 9999
+
+      - name: تصدير ملف APK
+        run: |
+          mkdir -p build
+          godot --headless --path . --export-debug "Android" "build/BattleArena.apk"
+          echo "تم التصدير:" && ls -la build/
+
+      - name: حفظ نسخة احتياطية (Artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: BattleArena-APK
+          path: build/BattleArena.apk
+          if-no-files-found: error
+
+      - name: نشر نسخة التحميل المباشر (Release)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag 2>/dev/null || true
+          gh release create latest "build/BattleArena.apk" \
+            --title "⚔️ Battle Arena — أحدث نسخة تجريبية" \
+            --notes "## طريقة التثبيت على الهاتف
+          1. حمّل الملف **BattleArena.apk** من أسفل هذه الصفحة (قسم Assets).
+          2. افتح الملف من إشعارات الهاتف — سيطلب النظام السماح بالتثبيت من مصادر غير معروفة، اسمح به.
+          3. ثبّت اللعبة وافتحها.
+
+          ## طريقة اللعب الجماعي
+          - **المضيف**: يفعّل نقطة الاتصال (Hotspot) ثم يفتح اللعبة → يكتب اسمه → **إنشاء غرفة** → يضغط **ابدأ المباراة**.
+          - **الأصدقاء**: يتصلون بشبكة الـ Hotspot نفسها → يفتحون اللعبة → يكتبون الاسم وعنوان الـ IP الظاهر عند المضيف → **انضم إلى غرفة**.
+
+          هذه نسخة توقيع اختباري (Debug) للتجربة — عندما تجهز النسخة النهائية للمتجر سيُبنى توقيع إصدار خاص.
+
+          رقم البناء: \`${{ github.run_number }}\` — من التزام: \`${{ github.sha }}\`"
+          echo "تم نشر النسخة بنجاح"
