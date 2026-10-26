@@ -33,10 +33,12 @@ jobs:
       - name: تثبيت قوالب التصدير
         run: |
           wget -q "https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz" -O /tmp/templates.tpz
-          mkdir -p ~/.local/share/godot/export_templates
           unzip -q /tmp/templates.tpz -d /tmp/tpz
-          mv /tmp/tpz/templates/* ~/.local/share/godot/export_templates/
-          echo "القوالب المثبتة:" && ls ~/.local/share/godot/export_templates/
+          TEMPLATE_VERSION=$(unzip -p /tmp/templates.tpz templates/version.txt | tr -d '[:space:]')
+          echo "نسخة القوالب: $TEMPLATE_VERSION"
+          mkdir -p ~/.local/share/godot/export_templates/$TEMPLATE_VERSION
+          mv /tmp/tpz/templates/* ~/.local/share/godot/export_templates/$TEMPLATE_VERSION/
+          echo "القوالب المثبتة:" && ls ~/.local/share/godot/export_templates/$TEMPLATE_VERSION/ | head -n 5
 
       - name: استيراد موارد المشروع
         run: godot --headless --path . --import
