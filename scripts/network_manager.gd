@@ -14,11 +14,13 @@ signal match_started
 const PORT := 7777
 const MAX_PLAYERS := 4
 const MIN_PLAYERS_TO_START := 2
+const BOT_IDS := [2, 3, 4, 5]
 
-var players := {}            # peer_id (int) -> {"name": String, "kills": int, "deaths": int}
+var players := {}            # peer_id (int) -> {"name": String, "kills": int, "deaths": int, "bot": bool}
 var my_name := "لاعب"
 var is_host := false
 var in_match := false
+var solo_mode := false
 var last_error := ""
 
 
@@ -38,6 +40,27 @@ func reset() -> void:
         players.clear()
         is_host = false
         in_match = false
+        solo_mode = false
+
+
+## وضع اللعب الفردي: بلا شبكة إطلاقاً — اللاعب ضد أعداء آليين (Bots).
+## نستخدم OfflineMultiplayerPeer صراحة حتى تعمل نداءات RPC المحلية
+## (الضرر وتسجيل القتل) بشكل طبيعي دون أي خادم.
+func start_solo(player_name: String, bot_count: int = 3) -> void:
+        reset()
+        var offline := OfflineMultiplayerPeer.new()
+        multiplayer.multiplayer_peer = offline
+        solo_mode = true
+        in_match = true
+        my_name = player_name
+        players[1] = _make_entry(player_name)
+        for i in mini(bot_count, BOT_IDS.size()):
+                var entry := _make_entry("بوت %d" % (i + 1))
+                entry["bot"] = true
+                players[BOT_IDS[i]] = entry
+        player_list_changed.emit()
+        # تأجيل تبديل المشهد حتى لا يحدث أثناء بناء الشجرة (مثلاً من _ready).
+        get_tree().change_scene_to_file.call_deferred("res://scenes/game.tscn")
 
 
 ## المضيف: فتح غرفة على شبكة محلية.
@@ -87,7 +110,7 @@ func get_local_ip() -> String:
 
 
 func _make_entry(pname: String) -> Dictionary:
-        return {"name": pname, "kills": 0, "deaths": 0}
+        return {"name": pname, "kills": 0, "deaths": 0, "bot": false}
 
 
 # ----------------------------------------------------------------------

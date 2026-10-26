@@ -45,6 +45,20 @@ jobs:
           godot --headless --path . --import || true
           godot --headless --path . --import
 
+      - name: اختبار آلي لوضع اللعب الفردي
+        run: |
+          set -o pipefail
+          godot --headless --path . --quit-after 400 -- --solo 2>&1 | tee /tmp/solo_test.log
+          if grep -q "SCRIPT ERROR" /tmp/solo_test.log; then
+            echo "!! خطأ في سكربتات وضع اللعب الفردي"
+            exit 1
+          fi
+          if ! grep -q "SOLO_TEST_OK players=4 bots=3" /tmp/solo_test.log; then
+            echo "!! لم تتولد الساحة والبوتات بشكل صحيح"
+            exit 1
+          fi
+          echo "نجح الاختبار: اللاعب + 3 بوتات عملوا 400 إطار بدون أخطاء"
+
       - name: التحقق من مفتاح التوقيع الثابت
         run: |
           ls -la debug.keystore

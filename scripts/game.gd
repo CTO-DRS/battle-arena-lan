@@ -56,6 +56,9 @@ func _ready() -> void:
         _build_hud()
         NetworkManager.player_list_changed.connect(_refresh_scores)
         _refresh_scores()
+        # تأكيد اختبار آلي: يطبع السطر فقط عند تشغيل وضع الفرد من سطر الأوامر (-- --solo).
+        if "--solo" in OS.get_cmdline_user_args():
+                print("SOLO_TEST_OK players=%d bots=%d" % [NetworkManager.players.size(), _count_bots()])
 
 
 func _process(_delta: float) -> void:
@@ -74,6 +77,15 @@ func _process(_delta: float) -> void:
 ## نقطة ظهور عشوائية للاعب المعاد إحياؤه.
 func get_spawn_position() -> Vector3:
         return SPAWNS[randi() % SPAWNS.size()]
+
+
+## عدد الأعداء الآليين (للاختبار الآلي).
+func _count_bots() -> int:
+        var n := 0
+        for id in NetworkManager.players:
+                if NetworkManager.players[id].get("bot", false):
+                        n += 1
+        return n
 
 
 # ----------------------------------------------------------------------
@@ -165,15 +177,28 @@ func _spawn_players() -> void:
         var my_id := multiplayer.get_unique_id()
         var index := 0
         for id in NetworkManager.players.keys():
-                var p := CharacterBody3D.new()
-                p.name = str(id)
-                p.set_multiplayer_authority(id)
-                p.script = load("res://scripts/player.gd")
-                p.display_name = str(NetworkManager.players[id]["name"])
-                p.position = SPAWNS[index % SPAWNS.size()]
-                add_child(p)
-                if id == my_id:
-                        local_player = p
+                var entry: Dictionary = NetworkManager.players[id]
+                if entry.get("bot", false):
+                        # عدو آلي (وضع اللعب الفردي فقط).
+                        var bot := CharacterBody3D.new()
+                        bot.name = str(id)
+                        bot.set_script(load("res://scripts/bot.gd"))
+                        bot.bot_id = id
+                        bot.display_name = str(entry["name"])
+                        bot.position = SPAWNS[index % SPAWNS.size()]
+                        add_child(bot)
+                        bot.add_to_group("combatants")
+                else:
+                        var p := CharacterBody3D.new()
+                        p.name = str(id)
+                        p.set_multiplayer_authority(id)
+                        p.script = load("res://scripts/player.gd")
+                        p.display_name = str(entry["name"])
+                        p.position = SPAWNS[index % SPAWNS.size()]
+                        add_child(p)
+                        p.add_to_group("combatants")
+                        if id == my_id:
+                                local_player = p
                 index += 1
 
 
